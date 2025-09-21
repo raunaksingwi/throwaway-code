@@ -1,0 +1,15 @@
+[project]
+name = "demo-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ast-grep-py>=0.39.5",
+    "directory-tree>=1.0.0",
+    "openai-agents>=0.3.0",
+    "pathspec>=0.12.1",
+]
+
+[project.scripts]
+code-identifier = "demo_agent.main:cli"
