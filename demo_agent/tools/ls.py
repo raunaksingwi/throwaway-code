@@ -1,7 +1,6 @@
 """ls tool - list directories/files relative to the workspace."""
 
 import os
-import time
 from agents import function_tool
 from ._shared import is_valid_path
 
@@ -11,19 +10,17 @@ def ls(
     path: str = ".",
     sort_by: str = "name",
     show_hidden: bool = False,
-    show_details: bool = False,
     reverse: bool = False
-) -> list[str] | str:
+) -> list[str]:
     """
     List directories/files relative to the workspace.
     Args:
         path: The directory path to list (defaults to current directory)
         sort_by: Sort method - "name", "mtime", "size", "type" (default: "name")
         show_hidden: Include hidden files/directories (default: False)
-        show_details: Return detailed information as string (default: False)
         reverse: Reverse the sort order (default: False)
     Returns:
-        A list of directories/files, or detailed string if show_details=True
+        A list of directories/files
     """
     # Validate sort_by parameter
     valid_sorts = ["name", "mtime", "size", "type"]
@@ -32,7 +29,7 @@ def ls(
 
     is_valid, validated_path = is_valid_path(path)
     if not is_valid:
-        return [] if not show_details else f"Invalid path: {path}"
+        return []
 
     workspace_root = os.getcwd()
 
@@ -71,7 +68,7 @@ def ls(
                         'type': 'unknown'
                     })
     except (OSError, PermissionError):
-        return [] if not show_details else f"Permission denied: {path}"
+        return []
 
     # Sort the items
     if sort_by == "name":
@@ -86,18 +83,5 @@ def ls(
     if reverse:
         items_with_info.reverse()
 
-    # Return appropriate format
-    if show_details:
-        output_lines = [f"Directory: {path}"]
-        output_lines.append(f"Total entries: {len(items_with_info)}")
-        output_lines.append("")
-
-        for item in items_with_info:
-            prefix = "[DIR] " if item['is_dir'] else "[FILE]"
-            size_str = f"{item['size']:,} bytes" if not item['is_dir'] else ""
-            mtime_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(item['mtime'])) if item['mtime'] > 0 else "unknown"
-            output_lines.append(f"{prefix}{item['name']:30} {size_str:15} {mtime_str}")
-
-        return "\n".join(output_lines)
-    else:
-        return [item['name'] for item in items_with_info]
+    # Return list of item names
+    return [item['name'] for item in items_with_info]

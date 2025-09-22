@@ -1,6 +1,6 @@
-"""read_files tool - stream the contents of one or more files."""
+"""read_files tool - read the contents of one or more files."""
 
-from typing import Generator, Optional
+from typing import Optional
 from agents import function_tool
 from ._shared import security_error_handler, is_valid_path
 
@@ -11,16 +11,16 @@ def read_files(
     include_line_numbers: bool = False,
     max_lines_per_file: Optional[int] = None,
     encoding: str = "utf-8"
-) -> Generator[str, None, None]:
+) -> str:
     """
-    Stream the contents of one or more files within the workspace, respecting .gitignore patterns.
+    Read the contents of one or more files within the workspace, respecting .gitignore patterns.
     Args:
         files: A list of files to read.
         include_line_numbers: Add line numbers to the output (default: False)
         max_lines_per_file: Maximum lines to read per file (default: None for unlimited)
         encoding: Text encoding to use (default: "utf-8")
     Returns:
-        A generator that yields the contents of the files.
+        A string containing the contents of all files, with file headers for multi-file reads.
     Raises:
         ValueError: If no files provided or invalid parameters
         ValueError: If any file is outside the workspace or should be ignored
@@ -31,6 +31,8 @@ def read_files(
     if max_lines_per_file is not None and max_lines_per_file < 1:
         raise ValueError("max_lines_per_file must be >= 1")
 
+    result_parts = []
+    
     for file in files:
         is_valid, validated_path = is_valid_path(file)
         if not is_valid:
@@ -67,11 +69,13 @@ def read_files(
 
                 # Add file header for multi-file reads
                 if len(files) > 1:
-                    yield f"=== File: {file} ===\n{content}\n"
+                    result_parts.append(f"=== File: {file} ===\n{content}\n")
                 else:
-                    yield content
+                    result_parts.append(content)
 
         except UnicodeDecodeError as e:
             raise ValueError(f"Cannot decode file {file} with encoding {encoding}: {e}")
         except OSError as e:
             raise ValueError(f"Cannot read file {file}: {e}")
+    
+    return "\n".join(result_parts)
