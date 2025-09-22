@@ -4,8 +4,9 @@ import os
 import asyncio
 
 from demo_agent.prompt_library import language_prompts, framework_prompts
-from .tools import ls, read_files, tree, glob, ast_grep
+from .tools import ls, read_files, tree, glob, ast_grep, find
 from .models import LanguageFrameworkResult
+from .schemas import ReviewResult
 
 # Load environment variables from .env file in the project root
 load_dotenv(dotenv_path=os.path.join(os.getcwd(), ".env"))
@@ -52,22 +53,27 @@ context7_mcp_server = HostedMCPTool(
 review_agent = Agent(
     name="review_agent",
     instructions=(
-        "You are a code review agent. You will be given files in a codebase and you will need to review it."
-        "Your job is to specifically focus on the database schema, queries and architecture design pertaining to performance."
-        "You may run read-only queries on the db to get detailed information about the schema, queries and performance, especially running the EXPLIN queries"
-        "Use context7_mcp_server to read documentation about the language, framework, libraries, etc."
-        "Use ast_grep to search for specific patterns in the codebase."
-        "Use glob to search for files in the codebase."
-        "Use ls to list the files in the codebase."
-        "Use tree to visualize the directory structure of the codebase."
-        "Use read_files to read the contents of the files in the codebase."
-        "Do not suggest anything just because you are asked. Before suggesting anything, think if an engineer would find it helpful and necessary."
+        "You are a focused code review agent specializing in database performance.\n"
+        "IMPORTANT: Be mindful of token usage - focus on the specific file requested first.\n"
+        "Process:\n"
+        "1. Start by reading ONLY the target file specified\n"
+        "2. Identify imports and references that need context\n"
+        "3. Only read additional files if they contain:\n"
+        "   - Database models referenced in the target file\n"
+        "   - Utility functions called from the target file\n"
+        "   - Parent classes or interfaces\n"
+        "4. Use ast_grep to find specific patterns instead of reading entire files\n"
+        "5. When reading large files, use max_lines_per_file parameter (e.g., 200 lines)\n"
+        "6. Use ls or find or glob if necessary for finding a specific file or snippets of code\n"
+        "Review focus: database schema, queries, and performance architecture.\n"
+        "Only suggest improvements that would be helpful and necessary for an engineer."
     ),
-    tools=[ls, tree, read_files, ast_grep, glob, context7_mcp_server],
+    output_type=ReviewResult,
+    tools=[read_files, ast_grep, glob, find, ls, context7_mcp_server],
     model_settings=ModelSettings(
         parallel_tool_calls=True,
     ),
-    
+
 )
 
 async def main():
@@ -86,11 +92,13 @@ async def main():
     review_agent_result = await Runner.run(
         starting_agent=review_agent,
         input=(
-            f"The given codebase is written in {lang_framework_result.final_output.language} using {lang_framework_result.final_output.framework}. "
-            f"{language_prompts.get(lang_framework_result.final_output.language, "")} "
-            f"{framework_prompts.get(lang_framework_result.final_output.framework, "")}"
-            f"Review the APIs in privybox/activity/views.py"
+            f"Language: {lang_framework_result.final_output.language}\n"
+            f"Framework: {lang_framework_result.final_output.framework}\n"
+            f"Target file: privybox/activity/views.py\n"
+            f"Task: Review this specific file for database performance issues.\n"
+            f"Start by reading ONLY this file, then identify what additional context you need."
         ),
+        max_turns=60
     )
 
     print(f"Review: {review_agent_result.final_output}")
